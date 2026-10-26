@@ -2,10 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Amor & Punk",
     short_name: "A&P",
     description: "Gestión del showroom Amor & Punk",
     start_url: "/",
+    scope: "/",
+    orientation: "portrait",
+    categories: ["business", "productivity"],
     display: "standalone",
     background_color: "#0E0B0C",
     theme_color: "#151012",
