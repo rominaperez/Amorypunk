@@ -41,7 +41,7 @@ npx wrangler secret put SUPABASE_SECRET_KEY   # pegá la secret key
 npm run deploy
 ```
 
-**Opción B, automático desde GitHub:** subí el repo y en Cloudflare → Workers & Pages → Create → Import a repository. Dejá los comandos que propone Cloudflare (deploy: `npx wrangler deploy`); el build lo dispara `wrangler.jsonc`. Después cargá `SUPABASE_SECRET_KEY` en Settings → Variables and Secrets, tipo Secret.
+**Opción B, automático desde GitHub:** subí el repo y en Cloudflare → Workers & Pages → Create → Import a repository. En Settings → Build poné **Build command** `npx opennextjs-cloudflare build` y dejá el deploy command `npx wrangler deploy`. Después cargá `SUPABASE_SECRET_KEY` en Settings → Variables and Secrets, tipo Secret.
 
 Queda una URL tipo `https://amorypunk.<tu-cuenta>.workers.dev`. Se puede poner un dominio propio desde Settings → Domains.
 
