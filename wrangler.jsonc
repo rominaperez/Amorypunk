@@ -5,7 +5,9 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Conserva las variables cargadas desde el panel de Cloudflare en cada deploy.
+  "keep_vars": true
   // La secret key de Supabase NO va acá: se carga como secreto
   //   npx wrangler secret put SUPABASE_SECRET_KEY
 }
