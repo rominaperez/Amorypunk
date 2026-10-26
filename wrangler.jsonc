@@ -5,7 +5,10 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Wrangler arma la app antes de publicar: así funciona con "npx wrangler deploy" a secas,
+  // que es lo que corre Cloudflare por defecto al conectar el repo.
+  "build": { "command": "npx opennextjs-cloudflare build" }
   // La secret key de Supabase NO va acá: se carga como secreto
   //   npx wrangler secret put SUPABASE_SECRET_KEY
 }
