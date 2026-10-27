@@ -11,7 +11,7 @@ export default async function StockPage() {
     ubicaciones(),
     bandasMapa(),
     sb.from("productos")
-      .select("id,codigo,nombre,categoria,banda_id,precio,precio_online,foto_path,producto_costos(costo_unit,pagado_por),variantes(id,talle,color,codigo,activa,stock(ubicacion_id,cantidad,reservada))")
+      .select("id,codigo,nombre,categoria,descripcion,banda_id,precio,precio_online,foto_path,producto_costos(costo_unit,pagado_por),variantes(id,talle,color,codigo,activa,stock(ubicacion_id,cantidad,reservada))")
       .eq("activo", true).order("nombre"),
     sb.from("configuracion").select("valor").eq("clave", "stock_minimo").maybeSingle(),
   ]);
@@ -20,7 +20,7 @@ export default async function StockPage() {
   const lista: Prod[] = prods.map((x) => {
     const c = Array.isArray(x.producto_costos) ? x.producto_costos[0] : x.producto_costos;
     return {
-      id: x.id, codigo: x.codigo, nombre: x.nombre, categoria: x.categoria, banda_id: x.banda_id,
+      id: x.id, codigo: x.codigo, nombre: x.nombre, categoria: x.categoria, descripcion: x.descripcion ?? null, banda_id: x.banda_id,
       precio: Number(x.precio), precio_online: x.precio_online == null ? null : Number(x.precio_online),
       foto: x.foto_path ? fotos[x.foto_path] ?? null : null,
       costo: c ? (c.costo_unit == null ? null : Number(c.costo_unit)) : undefined, pagado_por: c?.pagado_por ?? null,

@@ -275,5 +275,23 @@ exception when others then
 end $$;
 
 reset role;
+
+\echo ''
+\echo 'EXTRA · Producto sin talle con descripción, edición y baja'
+reset role;
+select test.como('gero');
+set role authenticated;
+select test.put('p_mu', crear_producto(jsonb_build_object('nombre','Muñeco Sid de tela','categoria','Muñecos',
+  'descripcion','Muñeco artesanal de 30 cm','precio',18000,'costo_unit',8000,'cantidad',2,'ubicacion_id',test.id('showroom')))::text);
+select test.eq('una sola variante sin talle', (select count(*) from variantes where producto_id = test.id('p_mu'))::numeric, 1);
+select test.eq('descripción guardada', (select count(*) from productos where id = test.id('p_mu') and descripcion = 'Muñeco artesanal de 30 cm')::numeric, 1);
+select editar_producto(test.id('p_mu'), jsonb_build_object('nombre','Muñeco Sid','categoria','Muñecos','descripcion','30 cm, tela','precio',20000));
+select test.eq('precio editado', precio, 20000) from productos where id = test.id('p_mu');
+select test.eq('se ve en stock', (select count(*) from v_stock where producto_id = test.id('p_mu'))::numeric, 1);
+select eliminar_producto(test.id('p_mu'));
+select test.eq('eliminado no aparece en stock', (select count(*) from v_stock where producto_id = test.id('p_mu'))::numeric, 0);
+select test.eq('usuario con ventas no se borra', usuario_borrable('00000000-0000-0000-0000-000000000003')::int, 0);
+select test.eq('usuario sin ventas se puede borrar', usuario_borrable('00000000-0000-0000-0000-000000000004')::int, 1);
+reset role;
 \echo ''
 \echo 'TODOS LOS CASOS PASARON'

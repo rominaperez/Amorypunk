@@ -11,7 +11,7 @@ import { useToast } from "@/components/Toast";
 
 type Var = { id: string; talle: string; color: string; codigo: string; stock: Record<string, { cantidad: number; reservada: number }> };
 export type Prod = {
-  id: string; codigo: string; nombre: string; categoria: string | null; banda_id: string | null;
+  id: string; codigo: string; nombre: string; categoria: string | null; descripcion: string | null; banda_id: string | null;
   precio: number; precio_online: number | null; foto: string | null;
   costo: number | null | undefined; pagado_por: "ap" | "banda" | null;
   dueno: string; color: string; variantes: Var[];
@@ -19,7 +19,7 @@ export type Prod = {
 type Props = { rol: Rol; productos: Prod[]; ubicaciones: Ubicacion[]; bandas: { id: string; nombre: string }[]; minimo: number };
 type Abierto =
   | { k: "nuevo" } | { k: "ingreso"; vid?: string } | { k: "traslado"; vid?: string }
-  | { k: "qr"; p: Prod; v?: Var } | { k: "costo"; p: Prod } | null;
+  | { k: "qr"; p: Prod; v?: Var } | { k: "costo"; p: Prod } | { k: "editar"; p: Prod } | null;
 
 const disp = (v: Var, u?: string) =>
   u ? (v.stock[u]?.cantidad ?? 0) - (v.stock[u]?.reservada ?? 0)
@@ -105,8 +105,10 @@ export default function StockCliente({ rol, productos, ubicaciones, bandas, mini
                   <b>{p.nombre}</b>
                   <div className="flex" style={{ gap: 6, marginTop: 4 }}>
                     <span className="chip" style={{ background: p.color, color: "#fff" }}>{p.dueno}</span>
+                    {p.categoria && <span className="chip">{p.categoria}</span>}
                     <span className="mono" style={{ color: "var(--muted)" }}>{p.codigo}</span>
                   </div>
+                  {p.descripcion && <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>{p.descripcion}</p>}
                 </div>
                 <div style={{ textAlign: "right" }}><b className="num">{pesos(p.precio)}</b><br /><small style={{ color: "var(--muted)" }}>{tot} disp.</small></div>
               </div>
@@ -141,7 +143,10 @@ export default function StockCliente({ rol, productos, ubicaciones, bandas, mini
                   </tbody>
                 </table>
               </div>
-              {rol !== "banda" && <div className="flex" style={{ marginTop: 10 }}><button className="btn sm ghost" onClick={() => setAbierto({ k: "qr", p })}>Etiquetas</button></div>}
+              {rol !== "banda" && <div className="flex" style={{ marginTop: 10 }}>
+                <button className="btn sm ghost" onClick={() => setAbierto({ k: "qr", p })}>Etiquetas</button>
+                {admin && <button className="btn sm ghost" onClick={() => setAbierto({ k: "editar", p })}>Editar</button>}
+              </div>}
             </div>
           );
         })}
@@ -152,6 +157,7 @@ export default function StockCliente({ rol, productos, ubicaciones, bandas, mini
       {abierto?.k === "ingreso" && <Ingreso productos={productos} ubicaciones={ubicaciones} vid={abierto.vid} onCerrar={cerrar} onListo={listo} />}
       {abierto?.k === "traslado" && <Traslado productos={productos} ubicaciones={ubicaciones} vid={abierto.vid} onCerrar={cerrar} onListo={listo} />}
       {abierto?.k === "costo" && <Costo p={abierto.p} onCerrar={cerrar} onListo={listo} />}
+      {abierto?.k === "editar" && <Editar p={abierto.p} onCerrar={cerrar} onListo={listo} />}
       {abierto?.k === "qr" && <Etiquetas p={abierto.p} v={abierto.v} onCerrar={cerrar} />}
       {nodo}
     </>
@@ -159,6 +165,7 @@ export default function StockCliente({ rol, productos, ubicaciones, bandas, mini
 }
 
 // ---------- formularios ----------
+const CATEGORIAS = ["Remeras", "Buzos", "Musculosas", "Gorras", "Muñecos", "Accesorios", "Discos", "Parches y pines", "Otros"];
 type FormP = { onCerrar: () => void; onListo: (m: string) => void };
 
 function useEnvio() {
@@ -178,6 +185,15 @@ function useEnvio() {
 function NuevoProducto({ bandas, ubicaciones, onCerrar, onListo }: FormP & { bandas: { id: string; nombre: string }[]; ubicaciones: Ubicacion[] }) {
   const { error, setError, cargando, enviar } = useEnvio();
   const [dueno, setDueno] = useState("");
+  const [cat, setCat] = useState("Remeras");
+  const [talles, setTalles] = useState("S, M, L, XL");
+  const [colores, setColores] = useState("Negro");
+  function cambiarCat(c: string) {
+    setCat(c);
+    const conTalle = /remera|buzo|campera|musculosa|gorra/i.test(c);
+    setTalles(conTalle ? "S, M, L, XL" : "");
+    setColores(conTalle ? "Negro" : "");
+  }
   async function guardar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget), g = (k: string) => String(f.get(k) ?? "").trim();
@@ -189,7 +205,7 @@ function NuevoProducto({ bandas, ubicaciones, onCerrar, onListo }: FormP & { ban
       const sb = supabaseBrowser();
       const { data, error } = await sb.rpc("crear_producto", {
         p: {
-          nombre: g("nombre"), categoria: g("categoria"), banda_id: dueno || null,
+          nombre: g("nombre"), categoria: cat, descripcion: g("descripcion"), banda_id: dueno || null,
           precio: Number(g("precio")), precio_online: Number(g("precio_online")) || null,
           costo_unit: g("costo") === "" ? null : Number(g("costo")), pagado_por: dueno ? g("pagado_por") : "ap",
           talles: lista(g("talles")).map((t) => t.toUpperCase()), colores: lista(g("colores")),
@@ -210,19 +226,22 @@ function NuevoProducto({ bandas, ubicaciones, onCerrar, onListo }: FormP & { ban
               <option value="">AMOR &amp; PUNK</option>{bandas.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select></div>
           <div className="field"><label htmlFor="np-c">Categoría</label>
-            <select id="np-c" name="categoria"><option>Remeras</option><option>Buzos</option><option>Accesorios</option><option>Discos</option><option>Otros</option></select></div>
+            <input id="np-c" list="categorias" value={cat} onChange={(e) => cambiarCat(e.target.value)} placeholder="Elegí o escribí una" /></div>
+          <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="np-d">Descripción (opcional)</label>
+            <textarea id="np-d" name="descripcion" rows={2} placeholder="Ej: Muñeco de tela hecho a mano, 30 cm" /></div>
           <div className="field"><label htmlFor="np-p">Precio local</label><input id="np-p" name="precio" inputMode="numeric" placeholder="25000" /></div>
           <div className="field"><label htmlFor="np-po">Precio Tiendanube</label><input id="np-po" name="precio_online" inputMode="numeric" placeholder="Igual al local" /></div>
           <div className="field"><label htmlFor="np-k">Costo unitario</label><input id="np-k" name="costo" inputMode="numeric" placeholder="Vacío = pendiente" /></div>
           {dueno && <div className="field"><label htmlFor="np-pg">Lo pagó</label><select id="np-pg" name="pagado_por"><option value="banda">La banda</option><option value="ap">A&amp;P</option></select></div>}
-          <div className="field"><label htmlFor="np-t">Talles</label><input id="np-t" name="talles" defaultValue="S, M, L, XL" placeholder="Vacío si no lleva" /></div>
-          <div className="field"><label htmlFor="np-col">Colores</label><input id="np-col" name="colores" defaultValue="Negro" /></div>
-          <div className="field"><label htmlFor="np-q">Cantidad por variante</label><input id="np-q" name="cantidad" inputMode="numeric" defaultValue="0" /></div>
+          <div className="field"><label htmlFor="np-t">Talles</label><input id="np-t" name="talles" value={talles} onChange={(e) => setTalles(e.target.value)} placeholder="Vacío si no lleva" /></div>
+          <div className="field"><label htmlFor="np-col">Colores</label><input id="np-col" name="colores" value={colores} onChange={(e) => setColores(e.target.value)} placeholder="Vacío si no lleva" /></div>
+          <div className="field"><label htmlFor="np-q">{talles.trim() || colores.trim() ? "Cantidad por variante" : "Cantidad"}</label><input id="np-q" name="cantidad" inputMode="numeric" defaultValue="0" /></div>
           <div className="field"><label htmlFor="np-l">Ubicación</label>
             <select id="np-l" name="ubicacion">{ubicaciones.filter((u) => u.tipo !== "feria").map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}</select></div>
           <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="np-f">Foto (opcional)</label><input id="np-f" name="foto" type="file" accept="image/*" /></div>
         </div>
-        <p className="note">Se crea una variante por cada talle y color, con su código y su QR. Si una banda deja en consignación, elegí la banda y &quot;La banda&quot; en quién pagó.</p>
+        <datalist id="categorias">{CATEGORIAS.map((c) => <option key={c} value={c} />)}</datalist>
+        <p className="note">Para muñecos, discos o accesorios dejá talles y colores vacíos. Si no, se crea una variante por cada talle y color, con su código y su QR. Si una banda deja en consignación, elegí la banda y &quot;La banda&quot; en quién pagó.</p>
         {error && <p className="err">{error}</p>}
         <button className="btn big" disabled={cargando}>{cargando ? "Creando…" : "Crear producto"}</button>
       </form>
@@ -344,6 +363,53 @@ function Etiquetas({ p, v, onCerrar }: { p: Prod; v?: Var; onCerrar: () => void 
       <div className="qrs">{vs.map((x) => <Etiqueta key={x.id} p={p} v={x} />)}</div>
       <p className="note">Al escanearlo en Vender, la variante se suma directo a la venta.</p>
       <button className="btn big" onClick={() => window.print()}>Imprimir</button>
+    </Modal>
+  );
+}
+
+function Editar({ p, onCerrar, onListo }: FormP & { p: Prod }) {
+  const { error, setError, cargando, enviar } = useEnvio();
+  const [confirmar, setConfirmar] = useState(false);
+  async function guardar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget), g = (k: string) => String(f.get(k) ?? "").trim();
+    if (!g("nombre")) return setError("Poné el nombre del producto.");
+    if (!Number(g("precio"))) return setError("Poné el precio.");
+    await enviar(() => supabaseBrowser().rpc("editar_producto", {
+      p_producto: p.id,
+      p: { nombre: g("nombre"), categoria: g("categoria"), descripcion: g("descripcion"), precio: Number(g("precio")), precio_online: g("precio_online") === "" ? null : Number(g("precio_online")) },
+    }), () => onListo("Producto actualizado."));
+  }
+  async function eliminar() {
+    await enviar(() => supabaseBrowser().rpc("eliminar_producto", { p_producto: p.id }), () => onListo(`${p.nombre} eliminado.`));
+  }
+  return (
+    <Modal titulo={`Editar · ${p.nombre}`} onCerrar={onCerrar}>
+      <form onSubmit={guardar}>
+        <div className="fields">
+          <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="ed-n">Nombre</label><input id="ed-n" name="nombre" defaultValue={p.nombre} /></div>
+          <div className="field"><label htmlFor="ed-c">Categoría</label><input id="ed-c" name="categoria" list="categorias-ed" defaultValue={p.categoria ?? ""} /></div>
+          <div className="field"><label htmlFor="ed-p">Precio local</label><input id="ed-p" name="precio" inputMode="numeric" defaultValue={p.precio} /></div>
+          <div className="field"><label htmlFor="ed-po">Precio Tiendanube</label><input id="ed-po" name="precio_online" inputMode="numeric" defaultValue={p.precio_online ?? ""} placeholder="Igual al local" /></div>
+          <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="ed-d">Descripción</label><textarea id="ed-d" name="descripcion" rows={3} defaultValue={p.descripcion ?? ""} /></div>
+        </div>
+        <datalist id="categorias-ed">{CATEGORIAS.map((c) => <option key={c} value={c} />)}</datalist>
+        <p className="note">El precio nuevo vale para las ventas que vienen. Las anteriores guardan el precio con el que se vendieron.</p>
+        {error && <p className="err">{error}</p>}
+        <button className="btn big" disabled={cargando}>Guardar cambios</button>
+      </form>
+      <h3>Eliminar producto</h3>
+      {!confirmar ? (
+        <button className="btn ghost" onClick={() => setConfirmar(true)} disabled={cargando}>Eliminar {p.nombre}</button>
+      ) : (
+        <div className="pcard" style={{ borderColor: "var(--red)" }}>
+          <p style={{ marginTop: 0 }}>Deja de aparecer en Stock y en Vender. Las ventas que ya tuvo siguen en el historial y en las cuentas de las bandas.</p>
+          <div className="flex">
+            <button className="btn" style={{ background: "var(--red)", borderColor: "var(--red)", color: "var(--on-red)" }} onClick={eliminar} disabled={cargando}>Sí, eliminar</button>
+            <button className="btn ghost" onClick={() => setConfirmar(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }

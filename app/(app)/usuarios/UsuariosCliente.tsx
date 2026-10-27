@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState, useTransition } from "react";
-import { crearUsuario, linkNuevo, cambiarActivo, type Resultado } from "./acciones";
+import { crearUsuario, linkNuevo, cambiarActivo, eliminarUsuario, type Resultado } from "./acciones";
 import Modal from "@/components/Modal";
 
 type U = { id: string; nombre: string; rol: "admin" | "vendedor" | "banda"; banda_id: string | null; contacto: string | null; activo: boolean };
@@ -11,8 +11,9 @@ function LinkListo({ r, onCerrar }: { r: Resultado; onCerrar: () => void }) {
   const msg = `Hola${r.nombre ? " " + r.nombre : ""}! Entrá acá para elegir tu contraseña de la app de Amor & Punk: ${r.link}`;
   return (
     <Modal titulo="Link listo" onCerrar={onCerrar}>
-      <p style={{ marginTop: 0 }}>Mandale este link{r.nombre ? <> a <b>{r.nombre}</b></> : ""} por WhatsApp. Sirve una sola vez y vence en 24 horas.</p>
+      <p style={{ marginTop: 0 }}>Mandale este link{r.nombre ? <> a <b>{r.nombre}</b></> : ""} por WhatsApp. Sirve una sola vez. Se activa cuando la persona toca el botón &quot;Activar mi cuenta&quot;.</p>
       <p className="mono" style={{ background: "var(--sunk)", padding: 10, borderRadius: 4, wordBreak: "break-all" }}>{r.link}</p>
+      <p className="note">Si se le vence, tocá &quot;Link nuevo&quot; en su fila y mandale el nuevo.</p>
       <div className="flex">
         <button className="btn" onClick={() => navigator.clipboard.writeText(r.link!).then(() => setCopiado(true))}>{copiado ? "Copiado" : "Copiar link"}</button>
         <a className="btn ghost" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer">Abrir WhatsApp</a>
@@ -27,6 +28,7 @@ export default function UsuariosCliente({ yo, usuarios, bandas }: { yo: string; 
   const [link, setLink] = useState<Resultado | null>(null);
   const [visto, setVisto] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [borrar, setBorrar] = useState<U | null>(null);
   const [pend, start] = useTransition();
   const nb = (id: string | null) => bandas.find((b) => b.id === id)?.nombre;
   const mostrar = estado.link && visto !== estado.link ? estado : link;
@@ -43,6 +45,7 @@ export default function UsuariosCliente({ yo, usuarios, bandas }: { yo: string; 
               <div className="flex" style={{ gap: 6 }}>
                 <button className="btn sm ghost" disabled={pend} onClick={() => start(async () => { const r = await linkNuevo(u.id); r.error ? setErr(r.error) : setLink(r); })}>Link nuevo</button>
                 <button className="btn sm ghost" disabled={pend} onClick={() => start(async () => { const r = await cambiarActivo(u.id, !u.activo); if (r.error) setErr(r.error); })}>{u.activo ? "Desactivar" : "Reactivar"}</button>
+                <button className="btn sm ghost" disabled={pend} onClick={() => { setErr(null); setBorrar(u); }}>Borrar</button>
               </div>
             )}
           </div>
@@ -69,6 +72,17 @@ export default function UsuariosCliente({ yo, usuarios, bandas }: { yo: string; 
         <button className="btn" style={{ marginTop: 12 }} disabled={creando}>{creando ? "Creando…" : "Crear y generar link"}</button>
       </form>
       <p className="note">No se manda ningún mail: la app te da un link para pasarle por WhatsApp. Desactivar no borra: sus ventas siguen figurando con su nombre. Si creás un admin, a los otros admins les llega un aviso.</p>
+      {borrar && (
+        <Modal titulo={`Borrar a ${borrar.nombre}`} onCerrar={() => setBorrar(null)}>
+          <p style={{ marginTop: 0 }}>Se borra el usuario y ya no puede entrar. Si tiene ventas cargadas no se puede borrar: en ese caso desactivalo.</p>
+          {err && <p className="err">{err}</p>}
+          <div className="flex">
+            <button className="btn" style={{ background: "var(--red)", borderColor: "var(--red)", color: "var(--on-red)" }} disabled={pend}
+              onClick={() => start(async () => { const r = await eliminarUsuario(borrar.id); if (r.error) setErr(r.error); else setBorrar(null); })}>Sí, borrar</button>
+            <button className="btn ghost" onClick={() => setBorrar(null)}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
       {mostrar?.link && <LinkListo r={mostrar} onCerrar={() => { if (estado.link) setVisto(estado.link); setLink(null); }} />}
     </>
   );

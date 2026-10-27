@@ -75,3 +75,22 @@ export async function cambiarActivo(userId: string, activo: boolean): Promise<Re
   revalidatePath("/usuarios");
   return {};
 }
+
+// Borra un usuario que nunca cargó ventas (por ejemplo, uno creado por error).
+// Si tiene ventas, se desactiva: su nombre tiene que seguir figurando en el historial.
+export async function eliminarUsuario(userId: string): Promise<Resultado> {
+  try {
+    const p = await soloAdmin();
+    if (p.id === userId) return { error: "No podés borrarte a vos mismo." };
+    const sb = await supabaseServer();
+    const { data: ok, error } = await sb.rpc("usuario_borrable", { p_usuario: userId });
+    if (error) return { error: error.message };
+    if (!ok) return { error: "Tiene ventas cargadas, así que no se puede borrar. Desactivalo: no va a poder entrar y su historial queda." };
+    const { error: e2 } = await supabaseAdmin().auth.admin.deleteUser(userId);
+    if (e2) return { error: e2.message };
+    revalidatePath("/usuarios");
+    return {};
+  } catch (e: any) {
+    return { error: e.message ?? "No se pudo borrar el usuario." };
+  }
+}
